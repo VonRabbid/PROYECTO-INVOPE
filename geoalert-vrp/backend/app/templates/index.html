@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoAlert-VRP | Centro de Operaciones de Emergencia (COER)</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Leaflet.js CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Google Fonts & Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="/static/css/custom.css">
+</head>
+<body class="bg-light">
+
+    <!-- BARRA SUPERIOR DE COMANDO COER -->
+    <nav class="navbar navbar-dark bg-dark px-3 shadow-sm">
+        <div class="container-fluid d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-shield-fill-exclamation text-danger fs-3"></i>
+                <div>
+                    <h1 class="navbar-brand mb-0 h1 fs-5 fw-bold text-white">GeoAlert-VRP | Centro de Mando Logístico y Alerta Temprana</h1>
+                    <small class="text-secondary d-none d-md-inline">COER Cajamarca & INDECI — Sistema de Optimización Combinatoria Multi-Quebrada (INVOPE)</small>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <span id="badge-sistema" class="badge bg-success px-3 py-2 fs-6">SISTEMA ACTIVO</span>
+                <button class="btn btn-sm btn-outline-light" onclick="resetearDemo()"><i class="bi bi-arrow-counterclockwise"></i> Reiniciar Demo</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- CONTENEDOR PRINCIPAL -->
+    <div class="container-fluid py-3 px-4">
+
+        <!-- RIBBON DE KPIS EJECUTIVOS -->
+        <div class="row g-3 mb-3">
+            <div class="col-xl-2 col-md-4 col-6">
+                <div class="card card-kpi border-start border-4 border-primary shadow-sm h-100 p-3">
+                    <span class="text-muted text-uppercase fw-semibold" style="font-size:0.75rem;">Provincias Monitoreadas</span>
+                    <h3 class="fw-bold my-1 text-dark">13</h3>
+                    <small class="text-muted">Cajamarca (Piloto) & Perú</small>
+                </div>
+            </div>
+            <div class="col-xl-2 col-md-4 col-6">
+                <div class="card card-kpi border-start border-4 border-danger shadow-sm h-100 p-3">
+                    <span class="text-muted text-uppercase fw-semibold" style="font-size:0.75rem;">Quebradas en Alerta Roja</span>
+                    <h3 id="kpi-rojas" class="fw-bold my-1 text-danger">{{ kpi_rojas }} / {{ kpi_total_quebradas }}</h3>
+                    <small id="kpi-rojas-desc" class="text-danger fw-semibold">0 activadas actualmente</small>
+                </div>
+            </div>
+            <div class="col-xl-2 col-md-4 col-6">
+                <div class="card card-kpi border-start border-4 border-warning shadow-sm h-100 p-3">
+                    <span class="text-muted text-uppercase fw-semibold" style="font-size:0.75rem;">Tramos Viales Bloqueados</span>
+                    <h3 id="kpi-bloqueados" class="fw-bold my-1 text-warning">{{ kpi_bloqueados }}</h3>
+                    <small class="text-muted">Huaico / Pérdida conectividad</small>
+                </div>
+            </div>
+            <div class="col-xl-2 col-md-4 col-6">
+                <div class="card card-kpi border-start border-4 border-success shadow-sm h-100 p-3">
+                    <span class="text-muted text-uppercase fw-semibold" style="font-size:0.75rem;">Re-enrutamiento PDD</span>
+                    <h3 id="kpi-pdd" class="fw-bold my-1 text-success">2.17 ms</h3>
+                    <small class="text-muted">Tiempo de cálculo Bellman</small>
+                </div>
+            </div>
+            <div class="col-xl-2 col-md-4 col-6">
+                <div class="card card-kpi border-start border-4 border-info shadow-sm h-100 p-3">
+                    <span class="text-muted text-uppercase fw-semibold" style="font-size:0.75rem;">Gap Dual Z_LP vs Z_IP</span>
+                    <h3 id="kpi-gap" class="fw-bold my-1 text-info">19.25%</h3>
+                    <small class="text-muted">Z_LP ≤ Z_IP Demostrado</small>
+                </div>
+            </div>
+            <div class="col-xl-2 col-md-4 col-6">
+                <div class="card card-kpi border-start border-4 border-dark shadow-sm h-100 p-3">
+                    <span class="text-muted text-uppercase fw-semibold" style="font-size:0.75rem;">Confiabilidad PERT/CPM</span>
+                    <h3 class="fw-bold my-1 text-dark">99.42%</h3>
+                    <small class="text-muted">Ventana límite &lt; 120 min</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- LAYOUT PRINCIPAL: MAPA SIG + PANEL DE CONTROL -->
+        <div class="row g-3">
+
+            <!-- COLUMNA IZQUIERDA: MAPA VECTORIAL INTERACTIVO SIG -->
+            <div class="col-xl-8 col-lg-7">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-map-fill text-primary fs-5"></i>
+                            <h2 class="h6 mb-0 fw-bold text-dark">Geovisor Táctico Provincial — Región Cajamarca (UBIGEO 0601)</h2>
+                        </div>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-primary" onclick="ejecutarOptimizacionVRPTW()">
+                                <i class="bi bi-play-circle-fill"></i> 1. Optimizar VRPTW
+                            </button>
+                            <button class="btn btn-danger" onclick="simularActivacionQuebrada()">
+                                <i class="bi bi-cloud-lightning-rain-fill"></i> 2. Disparar Huaico IoT
+                            </button>
+                            <button class="btn btn-outline-secondary" onclick="ejecutarReenrutamientoPDD()">
+                                <i class="bi bi-signpost-split-fill"></i> 3. Re-enrutar PDD
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0 position-relative">
+                        <!-- CONTENEDOR LEAFLET -->
+                        <div id="map" style="height: 620px; width: 100%;"></div>
+
+                        <!-- LEYENDA DEL MAPA FLOTANTE -->
+                        <div class="map-legend bg-white p-2 rounded shadow-sm border position-absolute bottom-0 start-0 m-3" style="z-index: 1000; font-size: 0.8rem;">
+                            <div class="fw-bold mb-1 border-bottom pb-1">Leyenda Cartográfica</div>
+                            <div><span class="legend-box bg-primary"></span> Almacén Central COER / AAP</div>
+                            <div><span class="legend-box bg-success"></span> Albergue Damnificados</div>
+                            <div><span class="legend-line line-green"></span> Tramo Vial Transitable</div>
+                            <div><span class="legend-line line-red"></span> Tramo Bloqueado por Huaico</div>
+                            <div><span class="legend-line line-blue"></span> Ruta Optimizada Vehículo 1</div>
+                            <div><span class="legend-line line-orange"></span> Ruta Optimizada Vehículo 2</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COLUMNA DERECHA: CONSOLA DE OPERACIONES Y ALGORITMOS INVOPE -->
+            <div class="col-xl-4 col-lg-5">
+                <div class="d-flex flex-column gap-3">
+
+                    <!-- TARJETA 1: MONITOREO DE QUEBRADAS Y TELEMETRÍA IOT -->
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+                            <span class="fw-bold text-dark" style="font-size:0.9rem;">
+                                <i class="bi bi-water text-info me-1"></i> Telemetría IoT Multi-Quebrada
+                            </span>
+                            <span class="badge bg-light text-dark border">En tiempo real</span>
+                        </div>
+                        <div class="card-body p-0" style="max-height: 240px; overflow-y: auto;">
+                            <table class="table table-sm table-hover mb-0" style="font-size: 0.82rem;">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th>Quebrada</th>
+                                        <th>Dinámica</th>
+                                        <th>Lluvia</th>
+                                        <th>Alerta</th>
+                                        <th>Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabla-quebradas-body">
+                                    {% for q in quebradas %}
+                                    <tr id="fila-qbr-{{ q.id_quebrada }}">
+                                        <td><strong>{{ q.nombre_quebrada }}</strong></td>
+                                        <td><span class="badge bg-secondary" style="font-size:0.7rem;">{{ q.tipo_quebrada }}</span></td>
+                                        <td><span id="pluv-{{ q.id_quebrada }}">{{ q.sensores[0].precipitacion_actual_mmh if q.sensores else 5.0 }}</span> mm/h</td>
+                                        <td>
+                                            <span id="badge-qbr-{{ q.id_quebrada }}" class="badge badge-alerta {% if q.estado_alerta == 'ROJO_ACTIVADO' %}bg-danger{% elif q.estado_alerta == 'AMARILLO' %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                                                {{ q.estado_alerta }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-xs btn-outline-danger py-0 px-1" title="Inyectar tormenta crítica" onclick="pulsarSensor('{{ q.sensores[0].id_sensor if q.sensores else 'IOT-0601-01' }}', 58.5)">
+                                                <i class="bi bi-lightning-fill"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- TARJETA 2: RESULTADOS DE OPTIMIZACIÓN (INVOPE) -->
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+                            <span class="fw-bold text-dark" style="font-size:0.9rem;">
+                                <i class="bi bi-cpu-fill text-primary me-1"></i> Motor de Optimización (PEM / PDD / PDP / PERT)
+                            </span>
+                            <span id="badge-solver-status" class="badge bg-success">Optimal</span>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="nav nav-tabs nav-fill mb-2" id="nav-tab" role="tablist" style="font-size: 0.8rem;">
+                                <button class="nav-link active py-1" id="tab-vrptw-btn" data-bs-toggle="tab" data-bs-target="#tab-vrptw" type="button">VRPTW</button>
+                                <button class="nav-link py-1" id="tab-pdd-btn" data-bs-toggle="tab" data-bs-target="#tab-pdd" type="button">PDD Dinámico</button>
+                                <button class="nav-link py-1" id="tab-pdp-btn" data-bs-toggle="tab" data-bs-target="#tab-pdp" type="button">PDP Kits</button>
+                                <button class="nav-link py-1" id="tab-pert-btn" data-bs-toggle="tab" data-bs-target="#tab-pert" type="button">PERT/CPM</button>
+                            </div>
+                            <div class="tab-content" id="nav-tabContent" style="font-size: 0.85rem;">
+                                <!-- PESTAÑA VRPTW -->
+                                <div class="tab-pane fade show active" id="tab-vrptw">
+                                    <div class="p-2 bg-light rounded border mb-2">
+                                        <div class="d-flex justify-content-between"><span>Solución Entera Z_IP:</span> <strong id="lbl-zip">60.27</strong></div>
+                                        <div class="d-flex justify-content-between"><span>Cota Dual Z_LP:</span> <strong id="lbl-zlp">48.67</strong></div>
+                                        <div class="d-flex justify-content-between"><span>Optimality Gap:</span> <strong id="lbl-gap" class="text-primary">19.25%</strong></div>
+                                        <div class="d-flex justify-content-between"><span>Tiempo Solver CBC:</span> <strong id="lbl-tcomputo">0.56 s</strong></div>
+                                    </div>
+                                    <div id="rutas-lista-container" style="max-height: 160px; overflow-y: auto;">
+                                        <small class="text-muted">Presiona 'Optimizar VRPTW' para calcular las secuencias vehiculares.</small>
+                                    </div>
+                                </div>
+
+                                <!-- PESTAÑA PDD -->
+                                <div class="tab-pane fade" id="tab-pdd">
+                                    <p class="mb-2 text-muted" style="font-size:0.8rem;">Re-enrutamiento rápido de Bellman dependiente del tiempo ante huaicos sobrevenidos.</p>
+                                    <button class="btn btn-sm btn-outline-danger w-100 mb-2" onclick="ejecutarReenrutamientoPDD()">
+                                        Calcular Desvío Dinámico (PDD)
+                                    </button>
+                                    <div id="res-pdd-box" class="p-2 bg-light rounded border">
+                                        <div class="d-flex justify-content-between"><span>Latencia de Cálculo:</span> <strong id="lbl-pdd-ms" class="text-success">2.17 ms</strong></div>
+                                        <div class="d-flex justify-content-between"><span>Camino Alternativo:</span> <strong id="lbl-pdd-camino">[0 → 5]</strong></div>
+                                        <div class="d-flex justify-content-between"><span>Tiempo Estimado:</span> <strong id="lbl-pdd-tiempo">28.4 min</strong></div>
+                                    </div>
+                                </div>
+
+                                <!-- PESTAÑA PDP -->
+                                <div class="tab-pane fade" id="tab-pdp">
+                                    <p class="mb-2 text-muted" style="font-size:0.8rem;">Pre-posicionamiento estocástico multietapa hacia atrás ante alertas SENAMHI.</p>
+                                    <div class="d-flex gap-2 mb-2">
+                                        <select id="sel-alerta-senamhi" class="form-select form-select-sm">
+                                            <option value="ROJO" selected>Alerta ROJA (Tormenta Severa)</option>
+                                            <option value="NARANJA">Alerta NARANJA (Preparación)</option>
+                                            <option value="AMARILLO">Alerta AMARILLA (Preventiva)</option>
+                                            <option value="VERDE">Alerta VERDE (Normal)</option>
+                                        </select>
+                                        <button class="btn btn-sm btn-primary" onclick="consultarPDP()">Evaluar</button>
+                                    </div>
+                                    <div id="res-pdp-box" class="p-2 bg-light rounded border">
+                                        <div class="d-flex justify-content-between"><span>Kits Despacho Inmediato:</span> <strong id="lbl-pdp-kits" class="text-danger">800 kits</strong></div>
+                                        <div class="d-flex justify-content-between"><span>Stock Resultante AAP:</span> <strong id="lbl-pdp-stock">1100 kits</strong></div>
+                                        <div class="d-flex justify-content-between"><span>Cobertura Riesgo Severo:</span> <strong id="lbl-pdp-cobertura">91.7%</strong></div>
+                                    </div>
+                                </div>
+
+                                <!-- PESTAÑA PERT/CPM -->
+                                <div class="tab-pane fade" id="tab-pert">
+                                    <p class="mb-2 text-muted" style="font-size:0.8rem;">Cadena crítica de actividades de preparación y despacho en el COER.</p>
+                                    <div class="p-2 bg-light rounded border">
+                                        <div class="d-flex justify-content-between"><span>Ruta Crítica:</span> <strong class="text-dark">A → B → D → H</strong></div>
+                                        <div class="d-flex justify-content-between"><span>Duración Esperada μ:</span> <strong>96.0 min</strong></div>
+                                        <div class="d-flex justify-content-between"><span>Varianza σ²:</span> <strong>94.7 min²</strong></div>
+                                        <div class="d-flex justify-content-between"><span>Puntualidad P(T ≤ 120min):</span> <strong class="text-success">99.42%</strong></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TARJETA 3: ESTADO VIAL PROVINCIAL -->
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+                            <span class="fw-bold text-dark" style="font-size:0.9rem;">
+                                <i class="bi bi-cone-striped text-warning me-1"></i> Transitabilidad de la Red Vial
+                            </span>
+                            <span id="badge-transitabilidad" class="badge bg-success">Red Transitable</span>
+                        </div>
+                        <div class="card-body p-2" id="contenedor-estado-vias" style="max-height: 140px; overflow-y: auto; font-size: 0.8rem;">
+                            <div class="text-muted"><i class="bi bi-check-circle-fill text-success"></i> Todos los tramos viales principales operativos.</div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- SCRIPTS JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html>

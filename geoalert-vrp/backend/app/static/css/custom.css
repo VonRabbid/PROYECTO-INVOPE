@@ -1,0 +1,80 @@
+/* Estilos visuales del Centro de Mando GeoAlert-VRP */
+
+:root {
+    --coer-navy: #1B365D;
+    --coer-red: #D9534F;
+    --coer-amber: #F0AD4E;
+    --coer-green: #5CB85C;
+    --coer-dark: #2C3E50;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #333333;
+}
+
+.card-kpi {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-kpi:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Animación pulsante para alertas rojas activas */
+@keyframes pulse-red {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.08); opacity: 0.75; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.badge-alerta.bg-danger {
+    animation: pulse-red 1.5s infinite;
+}
+
+/* Leyenda del Mapa */
+.legend-box {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+.legend-line {
+    display: inline-block;
+    width: 22px;
+    height: 4px;
+    border-radius: 2px;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+.line-green { background-color: #28a745; }
+.line-red { background-color: #dc3545; }
+.line-blue { background-color: #0d6efd; }
+.line-orange { background-color: #fd7e14; }
+
+/* Marcadores personalizados Leaflet */
+.leaflet-popup-content {
+    font-size: 0.82rem;
+    line-height: 1.4;
+}
+
+.btn-xs {
+    font-size: 0.72rem;
+    padding: 0.15rem 0.4rem;
+}
+
+/* Línea parpadeante en Leaflet para tramos cortados por huaico */
+@keyframes dash-animation {
+    to {
+        stroke-dashoffset: -40;
+    }
+}
+
+.blocked-road-animated {
+    animation: dash-animation 2s linear infinite;
+}
